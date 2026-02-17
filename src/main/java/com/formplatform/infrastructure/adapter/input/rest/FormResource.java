@@ -1,8 +1,8 @@
 package com.formplatform.infrastructure.adapter.input.rest;
 
+import com.formplatform.application.exception.InvalidFormException;
 import com.formplatform.domain.port.input.SubmitFormCommand;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -23,22 +23,20 @@ public class FormResource {
     SubmitFormCommand submitFormCommand;
 
     @POST
-    @Transactional
     public Response submitForm(@Valid Map<String, Object> formData) {
-        if (formData == null || formData.isEmpty()) {
+        try {
+            UUID formId = submitFormCommand.execute(formData);
+            return Response.status(Response.Status.CREATED)
+                    .entity(Map.of(
+                            "id", formId.toString(),
+                            "message", "Form submitted successfully"
+                    ))
+                    .build();
+        } catch (InvalidFormException e) {
             return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(Map.of("error", "Form data cannot be empty"))
+                    .entity(Map.of("error", e.getMessage()))
                     .build();
         }
-
-        UUID formId = submitFormCommand.execute(formData);
-        
-        return Response.status(Response.Status.CREATED)
-                .entity(Map.of(
-                        "id", formId.toString(),
-                        "message", "Form submitted successfully"
-                ))
-                .build();
     }
 
     @GET
