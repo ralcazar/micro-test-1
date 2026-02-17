@@ -1,6 +1,6 @@
 package com.formplatform.infrastructure.adapter.output.messaging;
 
-import com.formplatform.domain.port.output.OutboxRepository;
+import com.formplatform.infrastructure.adapter.output.persistence.OutboxRepository;
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.slf4j.Logger;

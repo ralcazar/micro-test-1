@@ -1,6 +1,5 @@
 package com.formplatform.infrastructure.adapter.output.persistence;
 
-import com.formplatform.domain.port.output.OutboxRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;

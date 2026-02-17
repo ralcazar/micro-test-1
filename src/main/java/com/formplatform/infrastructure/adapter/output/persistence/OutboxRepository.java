@@ -1,9 +1,10 @@
-package com.formplatform.domain.port.output;
+package com.formplatform.infrastructure.adapter.output.persistence;
 
 import java.util.List;
 
 /**
- * Output port for persisting events in the outbox (resilience when queue is unavailable)
+ * Contract for persisting and reading outbox events (resilience when queue is unavailable).
+ * Used only by infrastructure: OutboxEventPublisher and OutboxProcessor.
  */
 public interface OutboxRepository {
 
