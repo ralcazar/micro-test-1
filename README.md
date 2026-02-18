@@ -1,239 +1,131 @@
-# FormPlatform Microservice
+# FormPlatform – Microservicios
 
-Microservicio desarrollado con Quarkus que implementa una API REST para recibir y procesar formularios. Utiliza arquitectura hexagonal (puertos y adaptadores) para mantener el dominio desacoplado de la infraestructura.
+Proyecto **multi-módulo Maven** con microservicios independientes desarrollados en Quarkus. Cada microservicio tiene su propio código Java y su propia configuración (`application.properties`), sin compartir clases ni configuración entre ellos.
 
-## 🏗️ Arquitectura
-
-El proyecto sigue los principios de **Arquitectura Hexagonal**:
+## Estructura del repositorio
 
 ```
 formPlatform/
-├── domain/                    # Capa de Dominio (núcleo)
-│   ├── model/                # Entidades de dominio
-│   │   └── Form.java
-│   └── port/                 # Puertos (interfaces)
-│       ├── FormRepository.java
-│       └── EventPublisher.java
-├── application/              # Capa de Aplicación
-│   └── usecase/             # Casos de uso
-│       └── SubmitFormUseCase.java
-└── infrastructure/          # Capa de Infraestructura
-    └── adapter/            # Adaptadores
-        ├── persistence/    # Adaptador de persistencia (H2)
-        │   ├── FormEntity.java
-        │   └── H2FormRepository.java
-        ├── messaging/      # Adaptador de mensajería (RabbitMQ)
-        │   └── RabbitMQEventPublisher.java
-        └── rest/          # Adaptador REST
-            └── FormResource.java
+├── pom.xml                          # POM padre (solo módulos y dependencyManagement)
+├── formplatform/                    # Microservicio: API de formularios + eventos
+│   ├── pom.xml
+│   ├── src/main/java/com/formplatform/...
+│   └── src/main/resources/application.properties
+├── formpresentationreceiver/         # Microservicio: consumidor form-created, patrón Inbox
+│   ├── pom.xml
+│   ├── src/main/java/com/formpresentationreceiver/...
+│   └── src/main/resources/application.properties
+├── formcli.sh                       # CLI para el API (usa módulo formplatform)
+├── README.md                        # Este archivo
+├── FORM_PRESENTATION_RECEIVER_README.md
+└── CLI_README.md
 ```
 
-### Capas:
+## Microservicios
 
-1. **Dominio**: Contiene la lógica de negocio pura y las interfaces (puertos)
-2. **Aplicación**: Orquesta los casos de uso utilizando los puertos del dominio
-3. **Infraestructura**: Implementa los adaptadores que conectan con tecnologías específicas
+| Módulo | Puerto | Descripción |
+|--------|--------|-------------|
+| **formplatform** | 8080 | API REST de formularios, outbox y publicación a RabbitMQ |
+| **formpresentationreceiver** | 8081 | Consumidor de eventos `form.created`, patrón Inbox |
 
-## 🚀 Tecnologías
+Cada uno tiene:
+- **Configuración propia**: `application.properties` dentro de su módulo (nombre, puerto, BD, canales RabbitMQ).
+- **Código propio**: solo clases de su paquete (`com.formplatform.*` o `com.formpresentationreceiver.*`).
+- **Dependencias propias**: en su `pom.xml` (por ejemplo, formpresentationreceiver no usa REST ni Picocli).
 
-- **Quarkus 3.6.4**: Framework Java nativo en la nube
-- **H2 Database**: Base de datos embebida (persistencia en disco)
-- **RabbitMQ**: Sistema de mensajería para eventos
-- **Hibernate ORM with Panache**: ORM simplificado
-- **RESTEasy Reactive**: API REST reactiva
-- **Jackson**: Serialización/deserialización JSON
-- **Maven**: Gestión de dependencias
+## Requisitos
 
-## 📋 Requisitos Previos
-
-- Java 17 o superior
+- Java 17+
 - Maven 3.8+
-- RabbitMQ instalado y ejecutándose (puerto 5672)
+- RabbitMQ (puerto 5672)
 
-### Instalar RabbitMQ
+## Build
 
-**macOS:**
-```bash
-brew install rabbitmq
-brew services start rabbitmq
-```
-
-**Linux (Ubuntu/Debian):**
-```bash
-sudo apt-get install rabbitmq-server
-sudo systemctl start rabbitmq-server
-```
-
-**Docker:**
-```bash
-docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3-management
-```
-
-## 🔧 Configuración
-
-La configuración se encuentra en `src/main/resources/application.properties`:
-
-```properties
-# Puerto HTTP
-quarkus.http.port=8080
-
-# Base de datos H2 (archivo en disco)
-quarkus.datasource.jdbc.url=jdbc:h2:file:./data/formplatform
-
-# RabbitMQ
-rabbitmq-host=localhost
-rabbitmq-port=5672
-```
-
-## 🏃 Ejecución
-
-### Modo Desarrollo (con hot reload)
-```bash
-cd formPlatform
-./mvnw quarkus:dev
-```
-
-### Compilar y ejecutar
-```bash
-./mvnw clean package
-java -jar target/quarkus-app/quarkus-run.jar
-```
-
-## 📡 API REST
-
-### Endpoint: Enviar Formulario
-
-**POST** `/api/forms`
-
-**Request Body:**
-```json
-{
-  "nombre": "Juan Pérez",
-  "email": "juan@example.com",
-  "edad": 30,
-  "comentarios": "Este es un formulario de prueba"
-}
-```
-
-**Response (201 Created):**
-```json
-{
-  "id": 1,
-  "message": "Form submitted successfully"
-}
-```
-
-### Endpoint: Health Check
-
-**GET** `/api/forms/health`
-
-**Response:**
-```json
-{
-  "status": "UP"
-}
-```
-
-## 🧪 Pruebas con cURL
+Desde la raíz del proyecto:
 
 ```bash
-# Enviar un formulario
-curl -X POST http://localhost:8080/api/forms \
-  -H "Content-Type: application/json" \
-  -d '{
-    "nombre": "María García",
-    "email": "maria@example.com",
-    "telefono": "123456789",
-    "mensaje": "Solicitud de información"
-  }'
+# Compilar todos los módulos
+mvn clean compile
 
-# Health check
-curl http://localhost:8080/api/forms/health
+# Compilar solo un microservicio
+mvn -pl formplatform clean compile
+mvn -pl formpresentationreceiver clean compile
 ```
 
-## 📨 Eventos RabbitMQ
+## Ejecución
 
-Cuando se envía un formulario, se publica un evento en RabbitMQ:
+Cada microservicio se ejecuta por separado desde su módulo:
 
-- **Exchange**: `form-events`
-- **Routing Key**: `form.created`
-- **Mensaje**:
-```json
-{
-  "formId": 1,
-  "event": "FORM_CREATED"
-}
+### FormPlatform (API de formularios)
+
+```bash
+cd formplatform
+mvn quarkus:dev
 ```
 
-### Consumir eventos (ejemplo)
+- API: http://localhost:8080  
+- Configuración: `formplatform/src/main/resources/application.properties`  
+- Base de datos H2: `./data/formplatform` (relativa al directorio del módulo)
 
-Puedes verificar los eventos en la consola de administración de RabbitMQ:
-- URL: http://localhost:15672
-- Usuario: `guest`
-- Contraseña: `guest`
+### FormPresentationReceiver (consumidor de eventos)
 
-## 💾 Base de Datos
-
-Los datos se almacenan en H2 en el directorio `./data/formplatform.mv.db`
-
-Para acceder a la consola H2 en modo desarrollo:
-```
-http://localhost:8080/q/h2-console
+```bash
+cd formpresentationreceiver
+mvn quarkus:dev
 ```
 
-**Credenciales:**
-- JDBC URL: `jdbc:h2:file:./data/formplatform`
-- Usuario: `sa`
-- Contraseña: (vacío)
+- Puerto: 8081 (por defecto)  
+- Configuración: `formpresentationreceiver/src/main/resources/application.properties`  
+- Base de datos H2: `./data/formpresentationreceiver`
 
-## 🏛️ Principios de Arquitectura Hexagonal
+## Configuración por microservicio
 
-### Puertos (Interfaces)
-- `FormRepository`: Puerto para operaciones de persistencia
-- `EventPublisher`: Puerto para publicación de eventos
+- **formplatform**: `formplatform/src/main/resources/application.properties`  
+  - `quarkus.application.name=formplatform`  
+  - `quarkus.http.port=8080`  
+  - `quarkus.datasource.jdbc.url=jdbc:h2:file:./data/formplatform;...`  
+  - Canales **outgoing** RabbitMQ (`form-created`)
 
-### Adaptadores
-- `H2FormRepository`: Implementa `FormRepository` usando H2
-- `RabbitMQEventPublisher`: Implementa `EventPublisher` usando RabbitMQ
-- `FormResource`: Adaptador REST que expone la API
+- **formpresentationreceiver**: `formpresentationreceiver/src/main/resources/application.properties`  
+  - `quarkus.application.name=formpresentationreceiver`  
+  - `quarkus.http.port=8081`  
+  - `quarkus.datasource.jdbc.url=jdbc:h2:file:./data/formpresentationreceiver;...`  
+  - Canales **incoming** RabbitMQ (`form-created-in`)
 
-### Ventajas
-✅ **Testabilidad**: Fácil crear mocks de los puertos  
-✅ **Flexibilidad**: Cambiar tecnologías sin afectar el dominio  
-✅ **Mantenibilidad**: Separación clara de responsabilidades  
-✅ **Independencia**: El dominio no depende de frameworks
+No hay `application.properties` compartido en la raíz.
 
-## 📦 Estructura de Paquetes
+## Añadir un nuevo microservicio
 
+1. Crear carpeta del módulo, por ejemplo `mimicroservicio/`.
+2. Añadir `mimicroservicio/pom.xml` con `<parent>` apuntando al POM raíz y solo las dependencias Quarkus que necesite.
+3. Añadir en el `pom.xml` raíz:
+   ```xml
+   <modules>
+     <module>formplatform</module>
+     <module>formpresentationreceiver</module>
+     <module>mimicroservicio</module>
+   </modules>
+   ```
+4. Crear `mimicroservicio/src/main/java/com/mimicroservicio/...` y `mimicroservicio/src/main/resources/application.properties` con nombre, puerto y BD propios.
+
+Así cada microservicio sigue siendo independiente en código y configuración.
+
+## CLI (Form Platform)
+
+El script `formcli.sh` compila y ejecuta el CLI del módulo **formplatform**:
+
+```bash
+./formcli.sh submit --field nombre=test --field email=test@example.com
+./formcli.sh health -u http://localhost:8080
 ```
-com.formplatform
-├── domain
-│   ├── model          # Entidades de dominio
-│   └── port           # Interfaces (puertos)
-├── application
-│   └── usecase        # Lógica de aplicación
-└── infrastructure
-    └── adapter
-        ├── persistence  # Adaptador de BD
-        ├── messaging    # Adaptador de eventos
-        └── rest         # Adaptador HTTP
-```
 
-## 🔍 Logs
+Ver `CLI_README.md` para más opciones.
 
-Los logs muestran:
-- Consultas SQL ejecutadas
-- Eventos publicados en RabbitMQ
-- Peticiones HTTP recibidas
+## Documentación adicional
 
-## 🛠️ Desarrollo
+- **FormPresentationReceiver**: ver `FORM_PRESENTATION_RECEIVER_README.md`.
+- **CLI**: ver `CLI_README.md`.
 
-Para añadir nuevas funcionalidades:
+## Arquitectura por microservicio
 
-1. **Definir el puerto** en `domain/port/`
-2. **Crear el caso de uso** en `application/usecase/`
-3. **Implementar el adaptador** en `infrastructure/adapter/`
-
-## 📄 Licencia
-
-Este proyecto es un ejemplo educativo de arquitectura hexagonal con Quarkus.
+Ambos siguen **arquitectura hexagonal** (dominio, aplicación, infraestructura). El dominio y los casos de uso están en su propio paquete; la infraestructura (REST, RabbitMQ, H2, schedulers) en adaptadores. No se comparten clases entre formplatform y formpresentationreceiver.
