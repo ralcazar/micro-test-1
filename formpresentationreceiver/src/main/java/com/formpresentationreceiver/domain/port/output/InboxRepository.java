@@ -32,6 +32,17 @@ public interface InboxRepository {
     void markAsProcessed(UUID id);
 
     /**
+     * Try to atomically mark a presentation as processing.
+     * Returns the number of rows updated (1 if successful, 0 if already processed by another instance)
+     */
+    int tryMarkAsProcessing(UUID id);
+
+    /**
+     * Mark a presentation ID as unprocessed (for error recovery)
+     */
+    void markAsUnprocessed(UUID id);
+
+    /**
      * Check if a form ID already exists in the inbox
      */
     boolean existsByFormId(UUID formId);

@@ -25,6 +25,17 @@ public class ProcessPresentationUseCase implements ProcessPresentationCommand {
     @Override
     @Transactional
     public void execute(UUID presentationId) {
+        log.info(() -> "Attempting to process presentation with ID: " + presentationId);
+
+        // Try to atomically mark as processing (prevents duplicate processing by other instances)
+        int updated = inboxRepository.tryMarkAsProcessing(presentationId);
+        
+        if (updated == 0) {
+            // Another instance already processed or is processing this presentation
+            log.info(() -> "Presentation " + presentationId + " already processed by another instance, skipping");
+            return;
+        }
+
         log.info(() -> "Processing presentation with ID: " + presentationId);
 
         // TODO: Add your business logic here
@@ -35,11 +46,12 @@ public class ProcessPresentationUseCase implements ProcessPresentationCommand {
             // Your processing logic goes here
             log.info(() -> "Presentation " + presentationId + " processed successfully");
 
-            // Mark as processed
-            inboxRepository.markAsProcessed(presentationId);
-
         } catch (Exception e) {
             log.log(Level.SEVERE, "Error processing presentation " + presentationId + ": " + e.getMessage(), e);
+            
+            // Revert to unprocessed state so it can be retried later
+            inboxRepository.markAsUnprocessed(presentationId);
+            
             throw e;
         }
     }

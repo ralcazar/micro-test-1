@@ -31,4 +31,13 @@ public class InboxEntityRepository implements PanacheRepositoryBase<InboxEntity,
     public void markAsProcessed(UUID id) {
         update("processed = true, processedAt = ?1 WHERE id = ?2", LocalDateTime.now(), id);
     }
+
+    public int tryMarkAsProcessing(UUID id) {
+        return update("processed = true, processedAt = ?1 WHERE id = ?2 AND processed = false", 
+                     LocalDateTime.now(), id);
+    }
+
+    public void markAsUnprocessed(UUID id) {
+        update("processed = false, processedAt = null WHERE id = ?1", id);
+    }
 }

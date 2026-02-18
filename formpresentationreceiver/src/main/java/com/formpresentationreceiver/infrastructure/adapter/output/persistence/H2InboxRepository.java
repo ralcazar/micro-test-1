@@ -52,6 +52,16 @@ public class H2InboxRepository implements InboxRepository {
     }
 
     @Override
+    public int tryMarkAsProcessing(UUID id) {
+        return inboxEntityRepository.tryMarkAsProcessing(id);
+    }
+
+    @Override
+    public void markAsUnprocessed(UUID id) {
+        inboxEntityRepository.markAsUnprocessed(id);
+    }
+
+    @Override
     public boolean existsByFormId(UUID formId) {
         return inboxEntityRepository.existsByFormId(formId);
     }
