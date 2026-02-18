@@ -1,0 +1,72 @@
+@startuml REST Submit Form Sequence
+!define INFRASTRUCTURE_COLOR #E3F2FD
+!define APPLICATION_COLOR #FFF9C4
+!define DOMAIN_COLOR #F8BBD0
+
+skinparam backgroundColor white
+skinparam sequenceMessageAlign center
+
+title Submit Form via REST API
+
+actor "Client" as Client
+participant "FormResource\n(REST Controller)" as FormResource INFRASTRUCTURE_COLOR
+participant "SubmitFormUseCase" as UseCase APPLICATION_COLOR
+participant "Form\n(Domain Entity)" as Form DOMAIN_COLOR
+participant "FormRepository" as FormRepo APPLICATION_COLOR
+participant "H2FormRepository" as H2Repo INFRASTRUCTURE_COLOR
+database "H2 Database\n(forms)" as DB
+participant "EventPublisher" as EventPub APPLICATION_COLOR
+participant "OutboxEventPublisher" as OutboxPub INFRASTRUCTURE_COLOR
+database "H2 Database\n(outbox_events)" as OutboxDB
+
+Client -> FormResource: POST /api/forms\n{formData}
+activate FormResource INFRASTRUCTURE_COLOR
+
+FormResource -> UseCase: execute(formData)
+activate UseCase APPLICATION_COLOR
+
+UseCase -> UseCase: validate formData
+UseCase -> Form: new Form(formData)
+activate Form DOMAIN_COLOR
+Form --> UseCase: form
+deactivate Form
+
+UseCase -> FormRepo: save(form)
+activate FormRepo APPLICATION_COLOR
+FormRepo -> H2Repo: save(form)
+activate H2Repo INFRASTRUCTURE_COLOR
+H2Repo -> DB: INSERT INTO forms
+activate DB
+DB --> H2Repo: saved
+deactivate DB
+H2Repo --> FormRepo: savedForm
+deactivate H2Repo
+FormRepo --> UseCase: savedForm
+deactivate FormRepo
+
+UseCase -> EventPub: publishFormCreated(formId)
+activate EventPub APPLICATION_COLOR
+EventPub -> OutboxPub: publishFormCreated(formId)
+activate OutboxPub INFRASTRUCTURE_COLOR
+OutboxPub -> OutboxDB: INSERT INTO outbox_events\n(channel='form-created', payload)
+activate OutboxDB
+OutboxDB --> OutboxPub: saved
+deactivate OutboxDB
+OutboxPub --> EventPub: void
+deactivate OutboxPub
+EventPub --> UseCase: void
+deactivate EventPub
+
+UseCase --> FormResource: formId
+deactivate UseCase
+
+FormResource --> Client: 201 CREATED\n{id, message}
+deactivate FormResource
+
+note right of OutboxDB
+  Event stored in outbox table
+  Will be sent to RabbitMQ
+  by OutboxProcessor (scheduler)
+end note
+
+@enduml

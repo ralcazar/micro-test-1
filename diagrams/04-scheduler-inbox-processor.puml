@@ -1,0 +1,153 @@
+@startuml Scheduler Inbox Processor Sequence
+!define INFRASTRUCTURE_COLOR #E3F2FD
+!define APPLICATION_COLOR #FFF9C4
+!define DOMAIN_COLOR #F8BBD0
+
+skinparam backgroundColor white
+skinparam sequenceMessageAlign center
+
+title Inbox Processor - Scheduled Processing with Parallel Prevention
+
+participant "InboxProcessor\n(Scheduler @10s)" as Scheduler INFRASTRUCTURE_COLOR
+participant "InboxRepository" as InboxRepo APPLICATION_COLOR
+participant "H2InboxRepository" as H2InboxRepo INFRASTRUCTURE_COLOR
+database "H2 Database\n(inbox_presentations)" as InboxDB
+participant "ProcessPresentationCommand" as ProcessCmd APPLICATION_COLOR
+participant "ProcessPresentationUseCase" as ProcessUseCase APPLICATION_COLOR
+
+activate Scheduler INFRASTRUCTURE_COLOR
+
+note over Scheduler
+  Scheduled task runs every 10 seconds
+  Multiple instances may run in parallel
+end note
+
+Scheduler -> InboxRepo: findUnprocessed(BATCH_SIZE=10)
+activate InboxRepo APPLICATION_COLOR
+InboxRepo -> H2InboxRepo: findUnprocessed(10)
+activate H2InboxRepo INFRASTRUCTURE_COLOR
+H2InboxRepo -> InboxDB: SELECT * FROM inbox_presentations\nWHERE status = 'PENDING'\nORDER BY received_at ASC\nLIMIT 10
+activate InboxDB
+InboxDB --> H2InboxRepo: unprocessedList
+deactivate InboxDB
+H2InboxRepo --> InboxRepo: presentationIds
+deactivate H2InboxRepo
+InboxRepo --> Scheduler: presentationIds
+deactivate InboxRepo
+
+alt presentationIds is empty
+    Scheduler -> Scheduler: return (nothing to process)
+else presentationIds not empty
+    
+    loop for each presentationId
+        Scheduler -> ProcessCmd: execute(presentationId)
+        activate ProcessCmd APPLICATION_COLOR
+        ProcessCmd -> ProcessUseCase: execute(presentationId)
+        activate ProcessUseCase APPLICATION_COLOR
+        
+        note over ProcessUseCase
+          @Transactional
+          Atomic state transition
+        end note
+        
+        ProcessUseCase -> InboxRepo: tryMarkAsProcessing(presentationId)
+        activate InboxRepo APPLICATION_COLOR
+        InboxRepo -> H2InboxRepo: tryMarkAsProcessing(presentationId)
+        activate H2InboxRepo INFRASTRUCTURE_COLOR
+        H2InboxRepo -> InboxDB: UPDATE inbox_presentations\nSET status = 'DOING'\nWHERE id = ? AND status = 'PENDING'
+        activate InboxDB
+        InboxDB --> H2InboxRepo: rowsUpdated (1 or 0)
+        deactivate InboxDB
+        H2InboxRepo --> InboxRepo: rowsUpdated
+        deactivate H2InboxRepo
+        InboxRepo --> ProcessUseCase: rowsUpdated
+        deactivate InboxRepo
+        
+        alt rowsUpdated == 0
+            note over ProcessUseCase
+              Another instance already processing
+              or processed this presentation
+            end note
+            ProcessUseCase --> ProcessCmd: return (skip)
+        else rowsUpdated == 1
+            note over ProcessUseCase #90EE90
+              Successfully marked as DOING
+              This instance won the race
+              Status: PENDING → DOING
+            end note
+            
+            ProcessUseCase -> ProcessUseCase: // TODO: Business logic here\n// Call external services\n// Transform data, etc.
+            
+            alt processing successful
+                ProcessUseCase -> InboxRepo: markAsProcessed(presentationId)
+                activate InboxRepo APPLICATION_COLOR
+                InboxRepo -> H2InboxRepo: markAsProcessed(presentationId)
+                activate H2InboxRepo INFRASTRUCTURE_COLOR
+                H2InboxRepo -> InboxDB: UPDATE inbox_presentations\nSET status = 'DONE', processed_at = NOW()\nWHERE id = ?
+                activate InboxDB
+                InboxDB --> H2InboxRepo: updated
+                deactivate InboxDB
+                H2InboxRepo --> InboxRepo: void
+                deactivate H2InboxRepo
+                InboxRepo --> ProcessUseCase: void
+                deactivate InboxRepo
+                
+                note over ProcessUseCase #90EE90
+                  Status: DOING → DONE
+                  Processing completed successfully
+                end note
+                
+            else processing failed (exception)
+                note over ProcessUseCase #FFB6C1
+                  Exception occurred during processing
+                end note
+                
+                ProcessUseCase -> InboxRepo: markAsUnprocessed(presentationId)
+                activate InboxRepo APPLICATION_COLOR
+                InboxRepo -> H2InboxRepo: markAsUnprocessed(presentationId)
+                activate H2InboxRepo INFRASTRUCTURE_COLOR
+                H2InboxRepo -> InboxDB: UPDATE inbox_presentations\nSET status = 'PENDING', processed_at = NULL\nWHERE id = ?
+                activate InboxDB
+                InboxDB --> H2InboxRepo: updated
+                deactivate InboxDB
+                H2InboxRepo --> InboxRepo: void
+                deactivate H2InboxRepo
+                InboxRepo --> ProcessUseCase: void
+                deactivate InboxRepo
+                
+                note over ProcessUseCase #FFB6C1
+                  Status: DOING → PENDING
+                  Will be retried in next scheduler run
+                end note
+                
+                ProcessUseCase --> ProcessCmd: throw exception
+            end
+            
+            ProcessUseCase --> ProcessCmd: void
+        end
+        
+        deactivate ProcessUseCase
+        ProcessCmd --> Scheduler: void
+        deactivate ProcessCmd
+        
+    end
+    
+end
+
+deactivate Scheduler
+
+note right of InboxDB
+  **State Machine:**
+  PENDING → DOING → DONE
+     ↑         |
+     +---------+ (on error)
+  
+  **Parallel Prevention:**
+  - tryMarkAsProcessing() is atomic
+  - Only one instance can transition
+    from PENDING to DOING
+  - Other instances get rowsUpdated=0
+    and skip processing
+end note
+
+@enduml

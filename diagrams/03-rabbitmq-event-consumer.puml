@@ -1,0 +1,113 @@
+@startuml RabbitMQ Event Consumer Sequence
+!define INFRASTRUCTURE_COLOR #E3F2FD
+!define APPLICATION_COLOR #FFF9C4
+!define DOMAIN_COLOR #F8BBD0
+
+skinparam backgroundColor white
+skinparam sequenceMessageAlign center
+
+title Form Created Event - Cross-Microservice Communication
+
+box "FormPlatform Microservice" INFRASTRUCTURE_COLOR
+    participant "OutboxProcessor\n(Scheduler)" as OutboxProc INFRASTRUCTURE_COLOR
+    database "H2 Database\n(outbox_events)" as OutboxDB
+    participant "RabbitMQEventPublisher" as RabbitPub INFRASTRUCTURE_COLOR
+end box
+
+queue "RabbitMQ\n(form-events exchange)" as RabbitMQ #FFE0B2
+
+box "FormPresentationReceiver Microservice" INFRASTRUCTURE_COLOR
+    participant "FormCreatedEventConsumer\n(RabbitMQ Listener)" as Consumer INFRASTRUCTURE_COLOR
+    participant "ReceiveFormCreatedUseCase" as ReceiveUseCase APPLICATION_COLOR
+    participant "PresentationId\n(Domain Entity)" as PresentationId DOMAIN_COLOR
+    participant "InboxRepository" as InboxRepo APPLICATION_COLOR
+    participant "H2InboxRepository" as H2InboxRepo INFRASTRUCTURE_COLOR
+    database "H2 Database\n(inbox_presentations)" as InboxDB
+end box
+
+activate OutboxProc INFRASTRUCTURE_COLOR
+OutboxProc -> OutboxDB: SELECT * FROM outbox_events\nWHERE sent = false
+activate OutboxDB
+OutboxDB --> OutboxProc: unsentEvents
+deactivate OutboxDB
+
+loop for each unsent event
+    OutboxProc -> RabbitPub: publish(channel, payload)
+    activate RabbitPub INFRASTRUCTURE_COLOR
+    
+    RabbitPub -> RabbitMQ: PUBLISH to exchange 'form-events'\nrouting key: 'form.created'\npayload: {"formId": "uuid", "event": "FORM_CREATED"}
+    activate RabbitMQ #FFE0B2
+    
+    RabbitMQ --> RabbitPub: ACK
+    RabbitPub --> OutboxProc: published
+    deactivate RabbitPub
+    
+    OutboxProc -> OutboxDB: UPDATE outbox_events\nSET sent = true WHERE id = ?
+    activate OutboxDB
+    OutboxDB --> OutboxProc: updated
+    deactivate OutboxDB
+end
+
+deactivate OutboxProc
+
+note over RabbitMQ
+  Message queued in RabbitMQ
+  Queue: form-presentation-receiver-queue
+  Binding: form.created
+end note
+
+RabbitMQ -> Consumer: consume(message)\n{"formId": "uuid", "event": "FORM_CREATED"}
+activate Consumer INFRASTRUCTURE_COLOR
+deactivate RabbitMQ
+
+Consumer -> Consumer: parse JSON\nextract formId
+
+Consumer -> ReceiveUseCase: execute(formId)
+activate ReceiveUseCase APPLICATION_COLOR
+
+ReceiveUseCase -> InboxRepo: existsByFormId(formId)
+activate InboxRepo APPLICATION_COLOR
+InboxRepo -> H2InboxRepo: existsByFormId(formId)
+activate H2InboxRepo INFRASTRUCTURE_COLOR
+H2InboxRepo -> InboxDB: SELECT COUNT(*)\nFROM inbox_presentations\nWHERE form_id = ?
+activate InboxDB
+InboxDB --> H2InboxRepo: count
+deactivate InboxDB
+H2InboxRepo --> InboxRepo: exists
+deactivate H2InboxRepo
+InboxRepo --> ReceiveUseCase: false
+deactivate InboxRepo
+
+ReceiveUseCase -> PresentationId: new PresentationId(formId)
+activate PresentationId DOMAIN_COLOR
+PresentationId --> ReceiveUseCase: presentationId
+deactivate PresentationId
+
+ReceiveUseCase -> InboxRepo: save(presentationId)
+activate InboxRepo APPLICATION_COLOR
+InboxRepo -> H2InboxRepo: save(presentationId)
+activate H2InboxRepo INFRASTRUCTURE_COLOR
+H2InboxRepo -> InboxDB: INSERT INTO inbox_presentations\n(form_id, status='PENDING', received_at)
+activate InboxDB
+InboxDB --> H2InboxRepo: saved
+deactivate InboxDB
+H2InboxRepo --> InboxRepo: savedPresentationId
+deactivate H2InboxRepo
+InboxRepo --> ReceiveUseCase: savedPresentationId
+deactivate InboxRepo
+
+ReceiveUseCase --> Consumer: void
+deactivate ReceiveUseCase
+
+Consumer --> RabbitMQ: ACK message
+activate RabbitMQ #FFE0B2
+deactivate Consumer
+deactivate RabbitMQ
+
+note right of InboxDB
+  Event stored in inbox with status='PENDING'
+  Will be processed by InboxProcessor (scheduler)
+  Prevents duplicate processing with UNIQUE constraint on form_id
+end note
+
+@enduml
