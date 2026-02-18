@@ -4,8 +4,8 @@ import com.formpresentationreceiver.domain.model.PresentationId;
 import com.formpresentationreceiver.domain.port.input.ReceiveFormCreatedCommand;
 import com.formpresentationreceiver.domain.port.output.InboxRepository;
 import jakarta.transaction.Transactional;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import java.util.logging.Logger;
 
 import java.util.UUID;
 
@@ -14,7 +14,7 @@ import java.util.UUID;
  */
 public class ReceiveFormCreatedUseCase implements ReceiveFormCreatedCommand {
 
-    private static final Logger log = LoggerFactory.getLogger(ReceiveFormCreatedUseCase.class);
+    private static final Logger log = Logger.getLogger(ReceiveFormCreatedUseCase.class.getName());
 
     private final InboxRepository inboxRepository;
 
@@ -25,11 +25,11 @@ public class ReceiveFormCreatedUseCase implements ReceiveFormCreatedCommand {
     @Override
     @Transactional
     public void execute(UUID formId) {
-        log.info("Receiving form created event for formId: {}", formId);
+        log.info(() -> "Receiving form created event for formId: " + formId);
 
         // Check if already exists to avoid duplicates (idempotency)
         if (inboxRepository.existsByFormId(formId)) {
-            log.info("FormId {} already exists in inbox, skipping", formId);
+            log.info(() -> "FormId " + formId + " already exists in inbox, skipping");
             return;
         }
 
@@ -37,6 +37,6 @@ public class ReceiveFormCreatedUseCase implements ReceiveFormCreatedCommand {
         PresentationId presentationId = new PresentationId(formId);
         inboxRepository.save(presentationId);
 
-        log.info("FormId {} saved to inbox successfully", formId);
+        log.info(() -> "FormId " + formId + " saved to inbox successfully");
     }
 }

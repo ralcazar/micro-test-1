@@ -3,8 +3,9 @@ package com.formpresentationreceiver.application.usecase;
 import com.formpresentationreceiver.domain.port.input.ProcessPresentationCommand;
 import com.formpresentationreceiver.domain.port.output.InboxRepository;
 import jakarta.transaction.Transactional;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import java.util.UUID;
 
@@ -13,7 +14,7 @@ import java.util.UUID;
  */
 public class ProcessPresentationUseCase implements ProcessPresentationCommand {
 
-    private static final Logger log = LoggerFactory.getLogger(ProcessPresentationUseCase.class);
+    private static final Logger log = Logger.getLogger(ProcessPresentationUseCase.class.getName());
 
     private final InboxRepository inboxRepository;
 
@@ -24,7 +25,7 @@ public class ProcessPresentationUseCase implements ProcessPresentationCommand {
     @Override
     @Transactional
     public void execute(UUID presentationId) {
-        log.info("Processing presentation with ID: {}", presentationId);
+        log.info(() -> "Processing presentation with ID: " + presentationId);
 
         // TODO: Add your business logic here
         // For example: call external services, transform data, etc.
@@ -32,13 +33,13 @@ public class ProcessPresentationUseCase implements ProcessPresentationCommand {
         // Simulate processing
         try {
             // Your processing logic goes here
-            log.info("Presentation {} processed successfully", presentationId);
+            log.info(() -> "Presentation " + presentationId + " processed successfully");
 
             // Mark as processed
             inboxRepository.markAsProcessed(presentationId);
 
         } catch (Exception e) {
-            log.error("Error processing presentation {}: {}", presentationId, e.getMessage(), e);
+            log.log(Level.SEVERE, "Error processing presentation " + presentationId + ": " + e.getMessage(), e);
             throw e;
         }
     }
