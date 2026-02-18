@@ -22,7 +22,7 @@ public class BeanConfiguration {
 
     @Produces
     @ApplicationScoped
-    public ProcessPresentationCommand processPresentationCommand(InboxRepository inboxRepository) {
-        return new ProcessPresentationUseCase(inboxRepository);
+    public ProcessPresentationCommand processPresentationCommand() {
+        return new ProcessPresentationUseCase();
     }
 }
