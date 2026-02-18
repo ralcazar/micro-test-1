@@ -10,7 +10,7 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "inbox_presentations", indexes = {
-    @Index(name = "idx_inbox_processed_received", columnList = "processed, received_at"),
+    @Index(name = "idx_inbox_status_received", columnList = "status, received_at"),
     @Index(name = "idx_inbox_form_id", columnList = "form_id", unique = true)
 })
 public class InboxEntity {
@@ -25,8 +25,8 @@ public class InboxEntity {
     @Column(name = "received_at", nullable = false)
     private LocalDateTime receivedAt;
 
-    @Column(name = "processed", nullable = false)
-    private boolean processed = false;
+    @Column(name = "status", nullable = false, length = 20)
+    private String status = "PENDING";
 
     @Column(name = "processed_at")
     private LocalDateTime processedAt;
@@ -37,7 +37,7 @@ public class InboxEntity {
     public InboxEntity(UUID formId, LocalDateTime receivedAt) {
         this.formId = formId;
         this.receivedAt = receivedAt;
-        this.processed = false;
+        this.status = "PENDING";
     }
 
     public UUID getId() {
@@ -64,12 +64,20 @@ public class InboxEntity {
         this.receivedAt = receivedAt;
     }
 
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
     public boolean isProcessed() {
-        return processed;
+        return "DONE".equals(status);
     }
 
     public void setProcessed(boolean processed) {
-        this.processed = processed;
+        this.status = processed ? "DONE" : "PENDING";
     }
 
     public LocalDateTime getProcessedAt() {
