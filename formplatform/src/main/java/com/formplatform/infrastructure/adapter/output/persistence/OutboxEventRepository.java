@@ -27,7 +27,6 @@ public class OutboxEventRepository implements OutboxRepository {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public List<PendingOutboxEvent> findPending(int limit) {
         List<OutboxEventEntity> entities = entityManager
                 .createQuery("SELECT e FROM OutboxEventEntity e WHERE e.status = :status ORDER BY e.createdAt ASC", OutboxEventEntity.class)

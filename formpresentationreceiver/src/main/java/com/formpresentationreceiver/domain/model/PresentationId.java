@@ -1,6 +1,5 @@
 package com.formpresentationreceiver.domain.model;
 
-import java.util.Objects;
 import java.util.UUID;
 
 /**

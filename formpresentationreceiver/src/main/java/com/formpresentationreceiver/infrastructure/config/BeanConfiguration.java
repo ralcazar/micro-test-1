@@ -32,9 +32,7 @@ public class BeanConfiguration {
 
     @Produces
     @ApplicationScoped
-    public ReceiveFormCreatedCommand receiveFormCreatedCommand(
-            InboxRepository inboxRepository,
-            ProcessPresentationImmediatelyCommand processPresentationImmediatelyCommand) {
-        return new ReceiveFormCreatedUseCase(inboxRepository, processPresentationImmediatelyCommand);
+    public ReceiveFormCreatedCommand receiveFormCreatedCommand(InboxRepository inboxRepository) {
+        return new ReceiveFormCreatedUseCase(inboxRepository);
     }
 }

@@ -4,8 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
-import picocli.CommandLine.Parameters;
-
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -64,6 +62,7 @@ public class FormCliClient implements Callable<Integer> {
         @Option(names = {"-v", "--verbose"}, description = "Enable verbose output")
         private boolean verbose = false;
 
+        @SuppressWarnings("unchecked")
         @Override
         public Integer call() {
             try {
