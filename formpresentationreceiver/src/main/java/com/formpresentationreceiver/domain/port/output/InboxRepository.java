@@ -4,7 +4,6 @@ import com.formpresentationreceiver.domain.model.PresentationId;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 /**
  * Output port for inbox repository operations
@@ -13,6 +12,7 @@ public interface InboxRepository {
 
     /**
      * Save a presentation ID to the inbox
+     * Returns the saved presentation ID with its internal database ID
      */
     PresentationId save(PresentationId presentationId);
 
@@ -29,21 +29,21 @@ public interface InboxRepository {
     /**
      * Mark a presentation ID as processed
      */
-    void markAsProcessed(UUID id);
+    void markAsProcessed(PresentationId id);
 
     /**
      * Try to atomically mark a presentation as processing.
      * Returns the number of rows updated (1 if successful, 0 if already processed by another instance)
      */
-    int tryMarkAsProcessing(UUID id);
+    int tryMarkAsProcessing(PresentationId id);
 
     /**
      * Mark a presentation ID as unprocessed (for error recovery)
      */
-    void markAsUnprocessed(UUID id);
+    void markAsUnprocessed(PresentationId id);
 
     /**
-     * Check if a form ID already exists in the inbox
+     * Check if a presentation ID already exists in the inbox
      */
-    boolean existsByFormId(UUID formId);
+    boolean existsByPresentationId(PresentationId presentationId);
 }

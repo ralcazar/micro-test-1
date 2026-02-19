@@ -1,66 +1,30 @@
 package com.formpresentationreceiver.domain.model;
 
-import java.time.LocalDateTime;
+import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Domain entity representing a Presentation ID
+ * Value Object representing a Presentation ID (which is the same as Form ID)
+ * Immutable record to ensure value object semantics
  */
-public class PresentationId {
-    private UUID id;
-    private UUID formId;
-    private LocalDateTime receivedAt;
-    private boolean processed;
+public record PresentationId(UUID value) {
 
-    public PresentationId() {
+    public PresentationId {
+        if (value == null) {
+            throw new IllegalArgumentException("PresentationId cannot be null");
+        }
     }
 
-    public PresentationId(UUID formId) {
-        this.formId = formId;
-        this.receivedAt = LocalDateTime.now();
-        this.processed = false;
+    public static PresentationId of(UUID value) {
+        return new PresentationId(value);
     }
 
-    public PresentationId(UUID id, UUID formId, LocalDateTime receivedAt, boolean processed) {
-        this.id = id;
-        this.formId = formId;
-        this.receivedAt = receivedAt;
-        this.processed = processed;
+    public static PresentationId of(String value) {
+        return new PresentationId(UUID.fromString(value));
     }
 
-    public UUID getId() {
-        return id;
-    }
-
-    public void setId(UUID id) {
-        this.id = id;
-    }
-
-    public UUID getFormId() {
-        return formId;
-    }
-
-    public void setFormId(UUID formId) {
-        this.formId = formId;
-    }
-
-    public LocalDateTime getReceivedAt() {
-        return receivedAt;
-    }
-
-    public void setReceivedAt(LocalDateTime receivedAt) {
-        this.receivedAt = receivedAt;
-    }
-
-    public boolean isProcessed() {
-        return processed;
-    }
-
-    public void setProcessed(boolean processed) {
-        this.processed = processed;
-    }
-
-    public void markAsProcessed() {
-        this.processed = true;
+    @Override
+    public String toString() {
+        return value.toString();
     }
 }

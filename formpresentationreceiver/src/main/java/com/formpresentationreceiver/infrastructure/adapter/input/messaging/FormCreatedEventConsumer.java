@@ -37,10 +37,10 @@ public class FormCreatedEventConsumer {
             // Parse the message to extract formId
             JsonNode jsonNode = objectMapper.readTree(message);
             String formIdStr = jsonNode.get("formId").asText();
-            UUID formId = UUID.fromString(formIdStr);
+            UUID formIdUuid = UUID.fromString(formIdStr);
 
-            // Delegate to use case
-            receiveFormCreatedCommand.execute(formId);
+            // Delegate to use case with PresentationId value object
+            receiveFormCreatedCommand.execute(com.formpresentationreceiver.domain.model.PresentationId.of(formIdUuid));
 
         } catch (Exception e) {
             log.error("Error processing form-created event: {}", message, e);

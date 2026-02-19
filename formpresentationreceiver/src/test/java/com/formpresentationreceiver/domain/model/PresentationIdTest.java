@@ -2,7 +2,6 @@ package com.formpresentationreceiver.domain.model;
 
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -10,121 +9,86 @@ import static org.junit.jupiter.api.Assertions.*;
 class PresentationIdTest {
 
     @Test
-    void shouldCreateWithDefaultConstructor() {
-        PresentationId presentationId = new PresentationId();
-
-        assertNull(presentationId.getId());
-        assertNull(presentationId.getFormId());
-        assertNull(presentationId.getReceivedAt());
-        assertFalse(presentationId.isProcessed());
+    void shouldCreatePresentationIdWithUUID() {
+        UUID uuid = UUID.randomUUID();
+        
+        PresentationId presentationId = new PresentationId(uuid);
+        
+        assertEquals(uuid, presentationId.value());
     }
 
     @Test
-    void shouldCreateWithFormId() {
-        UUID formId = UUID.randomUUID();
-
-        PresentationId presentationId = new PresentationId(formId);
-
-        assertNull(presentationId.getId());
-        assertEquals(formId, presentationId.getFormId());
-        assertNotNull(presentationId.getReceivedAt());
-        assertFalse(presentationId.isProcessed());
+    void shouldCreatePresentationIdWithOfMethod() {
+        UUID uuid = UUID.randomUUID();
+        
+        PresentationId presentationId = PresentationId.of(uuid);
+        
+        assertEquals(uuid, presentationId.value());
     }
 
     @Test
-    void shouldSetReceivedAtCloseToNow() {
-        LocalDateTime before = LocalDateTime.now();
-        PresentationId presentationId = new PresentationId(UUID.randomUUID());
-        LocalDateTime after = LocalDateTime.now();
-
-        assertFalse(presentationId.getReceivedAt().isBefore(before));
-        assertFalse(presentationId.getReceivedAt().isAfter(after));
+    void shouldCreatePresentationIdFromString() {
+        String uuidString = "123e4567-e89b-12d3-a456-426614174000";
+        
+        PresentationId presentationId = PresentationId.of(uuidString);
+        
+        assertEquals(UUID.fromString(uuidString), presentationId.value());
     }
 
     @Test
-    void shouldCreateWithAllFields() {
-        UUID id = UUID.randomUUID();
-        UUID formId = UUID.randomUUID();
-        LocalDateTime receivedAt = LocalDateTime.of(2025, 6, 15, 14, 0);
-        boolean processed = true;
-
-        PresentationId presentationId = new PresentationId(id, formId, receivedAt, processed);
-
-        assertEquals(id, presentationId.getId());
-        assertEquals(formId, presentationId.getFormId());
-        assertEquals(receivedAt, presentationId.getReceivedAt());
-        assertTrue(presentationId.isProcessed());
+    void shouldThrowExceptionWhenUUIDIsNull() {
+        assertThrows(IllegalArgumentException.class, () -> new PresentationId(null));
     }
 
     @Test
-    void shouldSetAndGetId() {
-        PresentationId presentationId = new PresentationId();
-        UUID id = UUID.randomUUID();
-
-        presentationId.setId(id);
-
-        assertEquals(id, presentationId.getId());
+    void shouldThrowExceptionWhenOfMethodReceivesNull() {
+        assertThrows(IllegalArgumentException.class, () -> PresentationId.of((UUID) null));
     }
 
     @Test
-    void shouldSetAndGetFormId() {
-        PresentationId presentationId = new PresentationId();
-        UUID formId = UUID.randomUUID();
-
-        presentationId.setFormId(formId);
-
-        assertEquals(formId, presentationId.getFormId());
+    void shouldBeEqualWhenSameUUID() {
+        UUID uuid = UUID.randomUUID();
+        PresentationId presentationId1 = PresentationId.of(uuid);
+        PresentationId presentationId2 = PresentationId.of(uuid);
+        
+        assertEquals(presentationId1, presentationId2);
+        assertEquals(presentationId1.hashCode(), presentationId2.hashCode());
     }
 
     @Test
-    void shouldSetAndGetReceivedAt() {
-        PresentationId presentationId = new PresentationId();
-        LocalDateTime receivedAt = LocalDateTime.now();
-
-        presentationId.setReceivedAt(receivedAt);
-
-        assertEquals(receivedAt, presentationId.getReceivedAt());
+    void shouldNotBeEqualWhenDifferentUUID() {
+        PresentationId presentationId1 = PresentationId.of(UUID.randomUUID());
+        PresentationId presentationId2 = PresentationId.of(UUID.randomUUID());
+        
+        assertNotEquals(presentationId1, presentationId2);
     }
 
     @Test
-    void shouldSetAndGetProcessed() {
-        PresentationId presentationId = new PresentationId();
-
-        assertFalse(presentationId.isProcessed());
-
-        presentationId.setProcessed(true);
-
-        assertTrue(presentationId.isProcessed());
+    void shouldBeEqualToItself() {
+        PresentationId presentationId = PresentationId.of(UUID.randomUUID());
+        
+        assertEquals(presentationId, presentationId);
     }
 
     @Test
-    void shouldMarkAsProcessed() {
-        PresentationId presentationId = new PresentationId(UUID.randomUUID());
-
-        assertFalse(presentationId.isProcessed());
-
-        presentationId.markAsProcessed();
-
-        assertTrue(presentationId.isProcessed());
+    void shouldNotBeEqualToNull() {
+        PresentationId presentationId = PresentationId.of(UUID.randomUUID());
+        
+        assertNotEquals(presentationId, null);
     }
 
     @Test
-    void shouldDefaultToNotProcessedWhenCreatedWithFormId() {
-        PresentationId presentationId = new PresentationId(UUID.randomUUID());
-
-        assertFalse(presentationId.isProcessed());
+    void shouldNotBeEqualToDifferentType() {
+        PresentationId presentationId = PresentationId.of(UUID.randomUUID());
+        
+        assertNotEquals(presentationId, "some string");
     }
 
     @Test
-    void shouldCreateUnprocessedWithAllArgsConstructor() {
-        PresentationId presentationId = new PresentationId(
-                UUID.randomUUID(), UUID.randomUUID(), LocalDateTime.now(), false
-        );
-
-        assertFalse(presentationId.isProcessed());
-
-        presentationId.markAsProcessed();
-
-        assertTrue(presentationId.isProcessed());
+    void shouldReturnUUIDStringRepresentation() {
+        UUID uuid = UUID.randomUUID();
+        PresentationId presentationId = PresentationId.of(uuid);
+        
+        assertEquals(uuid.toString(), presentationId.toString());
     }
 }

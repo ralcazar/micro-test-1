@@ -6,7 +6,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -24,54 +23,44 @@ public class H2InboxRepository implements InboxRepository {
     @Override
     public PresentationId save(PresentationId presentationId) {
         InboxEntity entity = new InboxEntity(
-                presentationId.getFormId(),
-                presentationId.getReceivedAt()
+                presentationId.value(),
+                LocalDateTime.now()
         );
         inboxEntityRepository.persist(entity);
-        presentationId.setId(entity.getId());
         return presentationId;
     }
 
     @Override
     public List<PresentationId> findUnprocessed(int limit) {
         return inboxEntityRepository.findUnprocessed(limit).stream()
-                .map(this::toDomain)
+                .map(entity -> PresentationId.of(entity.getFormId()))
                 .collect(Collectors.toList());
     }
 
     @Override
     public List<PresentationId> findUnprocessedSince(LocalDateTime since) {
         return inboxEntityRepository.findUnprocessedSince(since).stream()
-                .map(this::toDomain)
+                .map(entity -> PresentationId.of(entity.getFormId()))
                 .collect(Collectors.toList());
     }
 
     @Override
-    public void markAsProcessed(UUID id) {
-        inboxEntityRepository.markAsProcessed(id);
+    public void markAsProcessed(PresentationId presentationId) {
+        inboxEntityRepository.markAsProcessed(presentationId.value());
     }
 
     @Override
-    public int tryMarkAsProcessing(UUID id) {
-        return inboxEntityRepository.tryMarkAsProcessing(id);
+    public int tryMarkAsProcessing(PresentationId presentationId) {
+        return inboxEntityRepository.tryMarkAsProcessing(presentationId.value());
     }
 
     @Override
-    public void markAsUnprocessed(UUID id) {
-        inboxEntityRepository.markAsUnprocessed(id);
+    public void markAsUnprocessed(PresentationId presentationId) {
+        inboxEntityRepository.markAsUnprocessed(presentationId.value());
     }
 
     @Override
-    public boolean existsByFormId(UUID formId) {
-        return inboxEntityRepository.existsByFormId(formId);
-    }
-
-    private PresentationId toDomain(InboxEntity entity) {
-        return new PresentationId(
-                entity.getId(),
-                entity.getFormId(),
-                entity.getReceivedAt(),
-                entity.isProcessed()
-        );
+    public boolean existsByPresentationId(PresentationId presentationId) {
+        return inboxEntityRepository.existsByPresentationId(presentationId.value());
     }
 }

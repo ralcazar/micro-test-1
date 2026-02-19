@@ -24,19 +24,19 @@ public class InboxEntityRepository implements PanacheRepositoryBase<InboxEntity,
                 .list();
     }
 
-    public boolean existsByFormId(UUID formId) {
-        return count("formId", formId) > 0;
+    public boolean existsByPresentationId(UUID presentationId) {
+        return count("formId", presentationId) > 0;
     }
 
-    public void markAsProcessed(UUID id) {
-        update("status = 'DONE', processedAt = ?1 WHERE id = ?2", LocalDateTime.now(), id);
+    public void markAsProcessed(UUID presentationId) {
+        update("status = 'DONE', processedAt = ?1 WHERE formId = ?2", LocalDateTime.now(), presentationId);
     }
 
-    public int tryMarkAsProcessing(UUID id) {
-        return update("status = 'DOING' WHERE id = ?1 AND status = 'PENDING'", id);
+    public int tryMarkAsProcessing(UUID presentationId) {
+        return update("status = 'DOING' WHERE formId = ?1 AND status = 'PENDING'", presentationId);
     }
 
-    public void markAsUnprocessed(UUID id) {
-        update("status = 'PENDING', processedAt = null WHERE id = ?1", id);
+    public void markAsUnprocessed(UUID presentationId) {
+        update("status = 'PENDING', processedAt = null WHERE formId = ?1", presentationId);
     }
 }

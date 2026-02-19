@@ -46,10 +46,8 @@ public class UnprocessedPresentationsFetcher {
 
             // Log details for monitoring/alerting purposes
             for (PresentationId presentationId : unprocessed) {
-                log.warn("Unprocessed presentation - ID: {}, FormID: {}, ReceivedAt: {}",
-                        presentationId.getId(),
-                        presentationId.getFormId(),
-                        presentationId.getReceivedAt());
+                log.warn("Unprocessed presentation - PresentationID: {}",
+                        presentationId);
             }
         } else {
             log.info("All presentations from the last {} days have been processed successfully", DAYS_TO_LOOK_BACK);

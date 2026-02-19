@@ -1,17 +1,16 @@
 package com.formpresentationreceiver.application.usecase;
 
 import com.formpresentationreceiver.domain.model.PresentationId;
+import com.formpresentationreceiver.domain.port.input.ProcessPresentationImmediatelyCommand;
 import com.formpresentationreceiver.domain.port.output.InboxRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -21,98 +20,114 @@ class ReceiveFormCreatedUseCaseTest {
     @Mock
     private InboxRepository inboxRepository;
 
+    @Mock
+    private ProcessPresentationImmediatelyCommand processPresentationImmediatelyCommand;
+
     private ReceiveFormCreatedUseCase receiveFormCreatedUseCase;
 
     @BeforeEach
     void setUp() {
-        receiveFormCreatedUseCase = new ReceiveFormCreatedUseCase(inboxRepository);
+        receiveFormCreatedUseCase = new ReceiveFormCreatedUseCase(inboxRepository, processPresentationImmediatelyCommand);
     }
 
     @Test
-    void shouldSaveNewFormIdToInbox() {
-        UUID formId = UUID.randomUUID();
-        when(inboxRepository.existsByFormId(formId)).thenReturn(false);
+    void shouldSaveNewPresentationIdToInbox() {
+        UUID uuid = UUID.randomUUID();
+        PresentationId presentationId = PresentationId.of(uuid);
+        
+        when(inboxRepository.existsByPresentationId(any(PresentationId.class))).thenReturn(false);
 
-        receiveFormCreatedUseCase.execute(formId);
+        receiveFormCreatedUseCase.execute(presentationId);
 
-        verify(inboxRepository).save(any(PresentationId.class));
+        verify(inboxRepository).save(presentationId);
+        verify(processPresentationImmediatelyCommand).execute(presentationId);
     }
 
     @Test
-    void shouldSkipDuplicateFormId() {
-        UUID formId = UUID.randomUUID();
-        when(inboxRepository.existsByFormId(formId)).thenReturn(true);
+    void shouldSkipDuplicatePresentationId() {
+        UUID uuid = UUID.randomUUID();
+        PresentationId presentationId = PresentationId.of(uuid);
+        when(inboxRepository.existsByPresentationId(any(PresentationId.class))).thenReturn(true);
 
-        receiveFormCreatedUseCase.execute(formId);
+        receiveFormCreatedUseCase.execute(presentationId);
 
         verify(inboxRepository, never()).save(any(PresentationId.class));
+        verify(processPresentationImmediatelyCommand, never()).execute(any(PresentationId.class));
     }
 
     @Test
-    void shouldCheckForExistingFormIdBeforeSaving() {
-        UUID formId = UUID.randomUUID();
-        when(inboxRepository.existsByFormId(formId)).thenReturn(false);
+    void shouldCheckForExistingPresentationIdBeforeSaving() {
+        UUID uuid = UUID.randomUUID();
+        PresentationId presentationId = PresentationId.of(uuid);
+        
+        when(inboxRepository.existsByPresentationId(any(PresentationId.class))).thenReturn(false);
 
-        receiveFormCreatedUseCase.execute(formId);
+        receiveFormCreatedUseCase.execute(presentationId);
 
-        var inOrder = inOrder(inboxRepository);
-        inOrder.verify(inboxRepository).existsByFormId(formId);
-        inOrder.verify(inboxRepository).save(any(PresentationId.class));
+        var inOrder = inOrder(inboxRepository, processPresentationImmediatelyCommand);
+        inOrder.verify(inboxRepository).existsByPresentationId(presentationId);
+        inOrder.verify(inboxRepository).save(presentationId);
+        inOrder.verify(processPresentationImmediatelyCommand).execute(presentationId);
     }
 
     @Test
-    void shouldCreatePresentationIdWithCorrectFormId() {
-        UUID formId = UUID.randomUUID();
-        when(inboxRepository.existsByFormId(formId)).thenReturn(false);
+    void shouldHandleMultipleNewPresentationIds() {
+        UUID uuid1 = UUID.randomUUID();
+        UUID uuid2 = UUID.randomUUID();
+        PresentationId presentationId1 = PresentationId.of(uuid1);
+        PresentationId presentationId2 = PresentationId.of(uuid2);
 
-        ArgumentCaptor<PresentationId> captor = ArgumentCaptor.forClass(PresentationId.class);
+        when(inboxRepository.existsByPresentationId(any(PresentationId.class))).thenReturn(false);
 
-        receiveFormCreatedUseCase.execute(formId);
-
-        verify(inboxRepository).save(captor.capture());
-        PresentationId saved = captor.getValue();
-
-        assertEquals(formId, saved.getFormId());
-        assertNotNull(saved.getReceivedAt());
-        assertFalse(saved.isProcessed());
-    }
-
-    @Test
-    void shouldHandleMultipleNewFormIds() {
-        UUID formId1 = UUID.randomUUID();
-        UUID formId2 = UUID.randomUUID();
-
-        when(inboxRepository.existsByFormId(formId1)).thenReturn(false);
-        when(inboxRepository.existsByFormId(formId2)).thenReturn(false);
-
-        receiveFormCreatedUseCase.execute(formId1);
-        receiveFormCreatedUseCase.execute(formId2);
+        receiveFormCreatedUseCase.execute(presentationId1);
+        receiveFormCreatedUseCase.execute(presentationId2);
 
         verify(inboxRepository, times(2)).save(any(PresentationId.class));
+        verify(processPresentationImmediatelyCommand, times(2)).execute(any(PresentationId.class));
     }
 
     @Test
-    void shouldNotSaveWhenFormIdAlreadyExists() {
-        UUID existingFormId = UUID.randomUUID();
-        when(inboxRepository.existsByFormId(existingFormId)).thenReturn(true);
+    void shouldNotSaveWhenPresentationIdAlreadyExists() {
+        UUID uuid = UUID.randomUUID();
+        PresentationId presentationId = PresentationId.of(uuid);
+        when(inboxRepository.existsByPresentationId(any(PresentationId.class))).thenReturn(true);
 
-        receiveFormCreatedUseCase.execute(existingFormId);
+        receiveFormCreatedUseCase.execute(presentationId);
 
-        verify(inboxRepository).existsByFormId(existingFormId);
+        verify(inboxRepository).existsByPresentationId(presentationId);
         verify(inboxRepository, never()).save(any());
+        verify(processPresentationImmediatelyCommand, never()).execute(any(PresentationId.class));
     }
 
     @Test
-    void shouldHandleMixOfNewAndDuplicateFormIds() {
-        UUID newFormId = UUID.randomUUID();
-        UUID duplicateFormId = UUID.randomUUID();
+    void shouldHandleMixOfNewAndDuplicatePresentationIds() {
+        UUID newUuid = UUID.randomUUID();
+        UUID duplicateUuid = UUID.randomUUID();
+        PresentationId newPresentationId = PresentationId.of(newUuid);
+        PresentationId duplicatePresentationId = PresentationId.of(duplicateUuid);
 
-        when(inboxRepository.existsByFormId(newFormId)).thenReturn(false);
-        when(inboxRepository.existsByFormId(duplicateFormId)).thenReturn(true);
+        when(inboxRepository.existsByPresentationId(newPresentationId)).thenReturn(false);
+        when(inboxRepository.existsByPresentationId(duplicatePresentationId)).thenReturn(true);
 
-        receiveFormCreatedUseCase.execute(newFormId);
-        receiveFormCreatedUseCase.execute(duplicateFormId);
+        receiveFormCreatedUseCase.execute(newPresentationId);
+        receiveFormCreatedUseCase.execute(duplicatePresentationId);
 
         verify(inboxRepository, times(1)).save(any(PresentationId.class));
+        verify(processPresentationImmediatelyCommand, times(1)).execute(any(PresentationId.class));
+    }
+    
+    @Test
+    void shouldContinueEvenIfImmediateProcessingFails() {
+        UUID uuid = UUID.randomUUID();
+        PresentationId presentationId = PresentationId.of(uuid);
+        
+        when(inboxRepository.existsByPresentationId(any(PresentationId.class))).thenReturn(false);
+        doThrow(new RuntimeException("Processing error")).when(processPresentationImmediatelyCommand).execute(any(PresentationId.class));
+
+        receiveFormCreatedUseCase.execute(presentationId);
+
+        verify(inboxRepository).save(presentationId);
+        verify(processPresentationImmediatelyCommand).execute(presentationId);
+        // No exception should be thrown, it should be caught and logged
     }
 }
