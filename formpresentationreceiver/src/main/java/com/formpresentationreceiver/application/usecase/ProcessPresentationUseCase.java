@@ -1,9 +1,10 @@
 package com.formpresentationreceiver.application.usecase;
 
+import com.formpresentationreceiver.domain.model.PresentationId;
 import com.formpresentationreceiver.domain.port.input.ProcessPresentationCommand;
+import jakarta.transaction.Transactional;
 
 import java.util.logging.Logger;
-import java.util.UUID;
 
 /**
  * Use case for processing a presentation from the inbox
@@ -15,7 +16,8 @@ public class ProcessPresentationUseCase implements ProcessPresentationCommand {
     private static final Logger log = Logger.getLogger(ProcessPresentationUseCase.class.getName());
 
     @Override
-    public void execute(UUID presentationId) {
+    @Transactional
+    public void execute(PresentationId presentationId) {
         log.info(() -> "Processing presentation with ID: " + presentationId);
 
         // TODO: Add your business logic here

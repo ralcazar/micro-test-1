@@ -1,5 +1,6 @@
 package com.formpresentationreceiver.application.usecase;
 
+import com.formpresentationreceiver.domain.model.PresentationId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -18,7 +19,7 @@ class ProcessPresentationUseCaseTest {
 
     @Test
     void shouldProcessPresentationSuccessfully() {
-        UUID presentationId = UUID.randomUUID();
+        PresentationId presentationId = PresentationId.of(UUID.randomUUID());
 
         // Should not throw any exception
         assertDoesNotThrow(() -> processPresentationUseCase.execute(presentationId));
@@ -26,8 +27,8 @@ class ProcessPresentationUseCaseTest {
 
     @Test
     void shouldProcessMultiplePresentationsIndependently() {
-        UUID id1 = UUID.randomUUID();
-        UUID id2 = UUID.randomUUID();
+        PresentationId id1 = PresentationId.of(UUID.randomUUID());
+        PresentationId id2 = PresentationId.of(UUID.randomUUID());
 
         // Should not throw any exception
         assertDoesNotThrow(() -> {

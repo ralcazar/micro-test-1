@@ -4,6 +4,7 @@ import com.formpresentationreceiver.domain.model.PresentationId;
 import com.formpresentationreceiver.domain.port.input.ProcessPresentationCommand;
 import com.formpresentationreceiver.domain.port.input.ProcessPresentationImmediatelyCommand;
 import com.formpresentationreceiver.domain.port.output.InboxRepository;
+import jakarta.transaction.Transactional;
 
 import java.util.logging.Logger;
 
@@ -26,6 +27,7 @@ public class ProcessPresentationImmediatelyUseCase implements ProcessPresentatio
     }
 
     @Override
+    @Transactional
     public void execute(PresentationId presentationId) {
         log.info(() -> "Attempting to process presentation with ID: " + presentationId);
 
@@ -42,7 +44,7 @@ public class ProcessPresentationImmediatelyUseCase implements ProcessPresentatio
 
         try {
             // Execute the business logic
-            processPresentationCommand.execute(presentationId.value());
+            processPresentationCommand.execute(presentationId);
 
             // Mark as DONE only after successful processing
             inboxRepository.markAsProcessed(presentationId);

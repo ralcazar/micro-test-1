@@ -1,6 +1,6 @@
 package com.formpresentationreceiver.domain.port.input;
 
-import java.util.UUID;
+import com.formpresentationreceiver.domain.model.PresentationId;
 
 /**
  * Functional interface for processing a presentation
@@ -16,5 +16,5 @@ public interface ProcessPresentationCommand {
      * 
      * @param presentationId the ID of the presentation to process
      */
-    void execute(UUID presentationId);
+    void execute(PresentationId presentationId);
 }
