@@ -14,11 +14,19 @@ import org.slf4j.LoggerFactory;
 import java.util.UUID;
 
 /**
- * RabbitMQ consumer for form-created events
- * Input adapter that receives messages and delegates to use cases
+ * RabbitMQ consumer for form-created events.
+ * Input adapter that receives messages and delegates to use cases.
+ *
  * Calls two separate use cases in separate transactions for resilience:
- * 1. ReceiveFormCreatedCommand - saves to inbox (committed first)
- * 2. ProcessPresentationImmediatelyCommand - processes immediately (if fails, scheduler will retry)
+ * 1. ReceiveFormCreatedCommand  - saves to inbox (committed first)
+ * 2. ProcessPresentationImmediatelyCommand - processes immediately (scheduler retries on failure)
+ *
+ * Message handling strategy:
+ * - Malformed / unparse-able messages: discarded immediately (logged, not re-queued)
+ *   to avoid poison-message infinite loops. The DLQ configured in application.properties
+ *   will receive NACKed messages for manual inspection.
+ * - Inbox save failure (DB outage): re-thrown so the broker re-queues the message.
+ * - Processing failure: swallowed; the inbox entry is committed and the scheduler retries.
  */
 @ApplicationScoped
 public class FormCreatedEventConsumer {
@@ -40,32 +48,46 @@ public class FormCreatedEventConsumer {
     @Incoming("form-created-in")
     @Blocking
     public void consume(String message) {
-        try {
-            log.info("Received form-created event: {}", message);
+        log.info("Received form-created event: {}", message);
 
-            // Parse the message to extract formId
+        // --- Parse and validate -------------------------------------------------
+        // Malformed messages are discarded (not re-thrown) to avoid infinite requeue
+        // of poison messages. They are captured by the DLQ if configured.
+        PresentationId presentationId;
+        try {
             JsonNode jsonNode = objectMapper.readTree(message);
+            if (jsonNode == null || !jsonNode.has("formId")) {
+                log.error("Malformed form-created event (missing formId), discarding: {}", message);
+                return;
+            }
             String formIdStr = jsonNode.get("formId").asText();
             UUID formIdUuid = UUID.fromString(formIdStr);
-            PresentationId presentationId = PresentationId.of(formIdUuid);
-
-            // Step 1: Save to inbox in its own transaction (resilient - always committed)
-            receiveFormCreatedCommand.execute(presentationId);
-
-            // Step 2: Try immediate processing in separate transaction
-            // If this fails, the inbox entry is already saved and scheduler will retry
-            try {
-                log.info("Triggering immediate processing for presentation ID: {}", presentationId);
-                processPresentationImmediatelyCommand.execute(presentationId);
-            } catch (Exception e) {
-                log.warn("Immediate processing failed for {}, will be retried by scheduler", presentationId, e);
-                // Don't rethrow - inbox entry is saved, scheduler will handle retry
-            }
-
+            presentationId = PresentationId.of(formIdUuid);
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid UUID in form-created event, discarding: {} — {}", message, e.getMessage());
+            return;
         } catch (Exception e) {
-            log.error("Error processing form-created event: {}", message, e);
-            // In a production system, you might want to send to a dead letter queue
-            throw new RuntimeException("Failed to process form-created event", e);
+            log.error("Failed to parse form-created event, discarding: {} — {}", message, e.getMessage());
+            return;
+        }
+
+        // --- Step 1: Save to inbox (own transaction) ----------------------------
+        // Re-throw on failure so the broker keeps the message and retries delivery.
+        // The inbox entry was never written, so there is no duplicate risk.
+        try {
+            receiveFormCreatedCommand.execute(presentationId);
+        } catch (Exception e) {
+            log.error("Failed to persist {} to inbox, re-queuing for broker retry: {}", presentationId, e.getMessage());
+            throw new RuntimeException("Inbox save failed for presentationId=" + presentationId, e);
+        }
+
+        // --- Step 2: Immediate processing (separate transaction) ----------------
+        // Inbox is already committed. Swallow failure — the scheduler will retry.
+        try {
+            log.info("Triggering immediate processing for presentation ID: {}", presentationId);
+            processPresentationImmediatelyCommand.execute(presentationId);
+        } catch (Exception e) {
+            log.warn("Immediate processing failed for {}, will be retried by scheduler: {}", presentationId, e.getMessage());
         }
     }
 }

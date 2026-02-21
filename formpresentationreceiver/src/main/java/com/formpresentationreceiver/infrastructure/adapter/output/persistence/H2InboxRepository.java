@@ -60,7 +60,22 @@ public class H2InboxRepository implements InboxRepository {
     }
 
     @Override
+    public void markAsFailed(PresentationId presentationId) {
+        inboxEntityRepository.markAsFailed(presentationId.value());
+    }
+
+    @Override
     public boolean existsByPresentationId(PresentationId presentationId) {
         return inboxEntityRepository.existsByPresentationId(presentationId.value());
+    }
+
+    @Override
+    public int resetStuckDoingItems(LocalDateTime stuckSince) {
+        return inboxEntityRepository.resetStuckDoingItems(stuckSince);
+    }
+
+    @Override
+    public int getRetryCount(PresentationId presentationId) {
+        return inboxEntityRepository.getRetryCount(presentationId.value());
     }
 }

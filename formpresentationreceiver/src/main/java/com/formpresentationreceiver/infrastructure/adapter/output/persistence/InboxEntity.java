@@ -6,7 +6,8 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
- * JPA Entity for inbox pattern - stores presentation IDs to be processed
+ * JPA Entity for inbox pattern - stores presentation IDs to be processed.
+ * States: PENDING -> DOING -> DONE (or FAILED after max retries)
  */
 @Entity
 @Table(name = "inbox_presentations", indexes = {
@@ -30,6 +31,12 @@ public class InboxEntity {
 
     @Column(name = "processed_at")
     private LocalDateTime processedAt;
+
+    @Column(name = "retry_count", nullable = false)
+    private int retryCount = 0;
+
+    @Column(name = "attempted_at")
+    private LocalDateTime attemptedAt;
 
     public InboxEntity() {
     }
@@ -86,5 +93,21 @@ public class InboxEntity {
 
     public void setProcessedAt(LocalDateTime processedAt) {
         this.processedAt = processedAt;
+    }
+
+    public int getRetryCount() {
+        return retryCount;
+    }
+
+    public void setRetryCount(int retryCount) {
+        this.retryCount = retryCount;
+    }
+
+    public LocalDateTime getAttemptedAt() {
+        return attemptedAt;
+    }
+
+    public void setAttemptedAt(LocalDateTime attemptedAt) {
+        this.attemptedAt = attemptedAt;
     }
 }

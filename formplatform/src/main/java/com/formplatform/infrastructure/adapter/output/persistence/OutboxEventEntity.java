@@ -31,6 +31,9 @@ public class OutboxEventEntity {
     @Column(name = "retry_count", nullable = false)
     private int retryCount = 0;
 
+    @Column(name = "next_retry_at")
+    private LocalDateTime nextRetryAt;
+
     public enum Status {
         PENDING,
         SENT,
@@ -92,5 +95,13 @@ public class OutboxEventEntity {
 
     public void setRetryCount(int retryCount) {
         this.retryCount = retryCount;
+    }
+
+    public LocalDateTime getNextRetryAt() {
+        return nextRetryAt;
+    }
+
+    public void setNextRetryAt(LocalDateTime nextRetryAt) {
+        this.nextRetryAt = nextRetryAt;
     }
 }

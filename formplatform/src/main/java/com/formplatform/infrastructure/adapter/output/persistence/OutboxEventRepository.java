@@ -4,11 +4,14 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Persists and reads outbox events for resilient event publishing
+ * Persists and reads outbox events for resilient event publishing.
+ * Implements exponential backoff via next_retry_at: events are only picked up
+ * once their next_retry_at timestamp has passed.
  */
 @ApplicationScoped
 public class OutboxEventRepository implements OutboxRepository {
@@ -28,9 +31,16 @@ public class OutboxEventRepository implements OutboxRepository {
 
     @Override
     public List<PendingOutboxEvent> findPending(int limit) {
+        // Only return events whose next_retry_at is null (first attempt) or has already passed
         List<OutboxEventEntity> entities = entityManager
-                .createQuery("SELECT e FROM OutboxEventEntity e WHERE e.status = :status ORDER BY e.createdAt ASC", OutboxEventEntity.class)
+                .createQuery(
+                        "SELECT e FROM OutboxEventEntity e " +
+                        "WHERE e.status = :status " +
+                        "  AND (e.nextRetryAt IS NULL OR e.nextRetryAt <= :now) " +
+                        "ORDER BY e.createdAt ASC",
+                        OutboxEventEntity.class)
                 .setParameter("status", OutboxEventEntity.Status.PENDING)
+                .setParameter("now", LocalDateTime.now())
                 .setMaxResults(limit)
                 .getResultList();
         return entities.stream()
@@ -56,12 +66,20 @@ public class OutboxEventRepository implements OutboxRepository {
         }
     }
 
+    /**
+     * Increments the retry counter and sets next_retry_at using exponential backoff.
+     * Backoff schedule (seconds): 10, 20, 40, 80, 160, 320, ... capped at 1 hour.
+     */
     @Override
     @Transactional
     public void incrementRetry(Long id) {
         OutboxEventEntity e = entityManager.find(OutboxEventEntity.class, id);
         if (e != null) {
-            e.setRetryCount(e.getRetryCount() + 1);
+            int newRetryCount = e.getRetryCount() + 1;
+            e.setRetryCount(newRetryCount);
+
+            long backoffSeconds = Math.min((long) (10 * Math.pow(2, newRetryCount - 1)), 3600L);
+            e.setNextRetryAt(LocalDateTime.now().plusSeconds(backoffSeconds));
         }
     }
 }

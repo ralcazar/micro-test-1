@@ -33,10 +33,29 @@ public class InboxEntityRepository implements PanacheRepositoryBase<InboxEntity,
     }
 
     public int tryMarkAsProcessing(UUID presentationId) {
-        return update("status = 'DOING' WHERE formId = ?1 AND status = 'PENDING'", presentationId);
+        return update("status = 'DOING', attemptedAt = ?1 WHERE formId = ?2 AND status = 'PENDING'",
+                LocalDateTime.now(), presentationId);
     }
 
     public void markAsUnprocessed(UUID presentationId) {
-        update("status = 'PENDING', processedAt = null WHERE formId = ?1", presentationId);
+        update("status = 'PENDING', processedAt = null, retryCount = retryCount + 1 WHERE formId = ?1", presentationId);
+    }
+
+    public void markAsFailed(UUID presentationId) {
+        update("status = 'FAILED', processedAt = ?1 WHERE formId = ?2", LocalDateTime.now(), presentationId);
+    }
+
+    /**
+     * Resets DOING items stuck for longer than stuckSince back to PENDING.
+     * Protects against service crashes that leave items in DOING state forever.
+     */
+    public int resetStuckDoingItems(LocalDateTime stuckSince) {
+        return update("status = 'PENDING' WHERE status = 'DOING' AND attemptedAt < ?1", stuckSince);
+    }
+
+    public int getRetryCount(UUID presentationId) {
+        return find("formId", presentationId).firstResultOptional()
+                .map(InboxEntity::getRetryCount)
+                .orElse(0);
     }
 }

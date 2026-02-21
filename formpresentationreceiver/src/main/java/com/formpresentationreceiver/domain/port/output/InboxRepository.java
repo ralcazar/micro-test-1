@@ -38,12 +38,29 @@ public interface InboxRepository {
     int tryMarkAsProcessing(PresentationId id);
 
     /**
-     * Mark a presentation ID as unprocessed (for error recovery)
+     * Mark a presentation ID as unprocessed (for error recovery), incrementing retry_count.
      */
     void markAsUnprocessed(PresentationId id);
+
+    /**
+     * Mark a presentation ID as permanently failed (max retries exceeded).
+     */
+    void markAsFailed(PresentationId id);
+
+    /**
+     * Get the current retry count for a presentation.
+     */
+    int getRetryCount(PresentationId id);
 
     /**
      * Check if a presentation ID already exists in the inbox
      */
     boolean existsByPresentationId(PresentationId presentationId);
+
+    /**
+     * Reset items stuck in DOING state (service crashed mid-processing) back to PENDING.
+     * @param stuckSince items with attemptedAt before this timestamp are considered stuck
+     * @return number of items reset
+     */
+    int resetStuckDoingItems(LocalDateTime stuckSince);
 }
